@@ -21,6 +21,11 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+set(WOLFSSL_EXAMPLES OFF)
+set(OPENSSL_EXTRA ON)
+set(HAVE_CURL ON)
+add_definitions(-DOPENSSL_EXTRA -DHAVE_CURL)
+
 if(${CMAKE_VERSION} VERSION_LESS "3.22")
     message(STATUS "This project recommends using CMake version 3.22 or higher. You are using ${CMAKE_VERSION}.")
 else()
@@ -1819,11 +1824,11 @@ if(NOT WOLFSSL_FILESYSTEM OR
 endif()
 
 # Enable wolfCrypt test and benchmark
-if(WOLFSSL_LINUX_KM)
+#if(WOLFSSL_LINUX_KM)
     set(CRYPT_TESTS_DEFAULT "no")
-else()
-    set(CRYPT_TESTS_DEFAULT "yes")
-endif()
+#else()
+#    set(CRYPT_TESTS_DEFAULT "yes")
+#endif()
 
 add_option("WOLFSSL_CRYPT_TESTS"
     "Enable Crypt Bench/Test (default: enabled)"
@@ -2270,7 +2275,11 @@ file(REMOVE ${OPTION_FILE})
 
 # TODO: - Build shared/static libs based on enables. Check CMake
 #         global flag BUILD_SHARED_LIBS.
+if(IOS)
+option(BUILD_SHARED_LIBS "Build shared libraries (.dll/.so) instead of static ones (.lib/.a)" OFF)
+else()
 option(BUILD_SHARED_LIBS "Build shared libraries (.dll/.so) instead of static ones (.lib/.a)" ON)
+endif()
 
 set(LIB_SOURCES "")
 # Generates a list of sources to include in the library.
