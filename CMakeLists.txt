@@ -2275,11 +2275,7 @@ file(REMOVE ${OPTION_FILE})
 
 # TODO: - Build shared/static libs based on enables. Check CMake
 #         global flag BUILD_SHARED_LIBS.
-if(IOS)
 option(BUILD_SHARED_LIBS "Build shared libraries (.dll/.so) instead of static ones (.lib/.a)" OFF)
-else()
-option(BUILD_SHARED_LIBS "Build shared libraries (.dll/.so) instead of static ones (.lib/.a)" ON)
-endif()
 
 set(LIB_SOURCES "")
 # Generates a list of sources to include in the library.
