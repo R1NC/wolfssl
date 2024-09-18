@@ -1004,7 +1004,7 @@ WOLFSSL_SESSION* wolfSSL_GetSessionClient(WOLFSSL* ssl, const byte* id, int len)
 #else
         current = &sessRow->Sessions[clSess[idx].serverIdx];
 #endif
-        if (current && XMEMCMP(current->serverID, id, len) == 0) {
+        if (current && XMEMCMP(current->serverID, id, (unsigned long)len) == 0) {
             WOLFSSL_MSG("Found a serverid match for client");
             if (LowResTimer() < (current->bornOn + current->timeout)) {
                 WOLFSSL_MSG("Session valid");
@@ -1625,7 +1625,7 @@ ClientSession* AddSessionToClientCache(int side, int row, int idx,
                     ID_LEN, &error) % CLIENT_SESSION_ROWS;
         }
         else {
-            error = -1;
+            error = WOLFSSL_FATAL_ERROR;
         }
         if (error == 0 && wc_LockMutex(&clisession_mutex) == 0) {
             clientIdx = (word32)ClientCache[clientRow].nextIdx;
@@ -1644,7 +1644,7 @@ ClientSession* AddSessionToClientCache(int side, int row, int idx,
                 }
             }
             else {
-                error = -1;
+                error = WOLFSSL_FATAL_ERROR;
                 ClientCache[clientRow].nextIdx = 0; /* reset index as safety */
                 WOLFSSL_MSG("Invalid client cache index! "
                             "Possible corrupted memory");
@@ -1709,14 +1709,14 @@ WOLFSSL_SESSION* ClientSessionToSession(const WOLFSSL_SESSION* session)
         if (clientSession->serverRow >= SESSION_ROWS ||
                 clientSession->serverIdx >= SESSIONS_PER_ROW) {
             WOLFSSL_MSG("Client cache serverRow or serverIdx invalid");
-            error = -1;
+            error = WOLFSSL_FATAL_ERROR;
         }
-        /* Prevent memory access before clientSession->serverRow and
-         * clientSession->serverIdx are sanitized. */
-        XFENCE();
         if (error == 0) {
             /* Lock row */
             sessRow = &SessionCache[clientSession->serverRow];
+            /* Prevent memory access before clientSession->serverRow and
+             * clientSession->serverIdx are sanitized. */
+            XFENCE();
             error = SESSION_ROW_RD_LOCK(sessRow);
             if (error != 0) {
                 WOLFSSL_MSG("Session cache row lock failure");
@@ -1729,10 +1729,12 @@ WOLFSSL_SESSION* ClientSessionToSession(const WOLFSSL_SESSION* session)
 #else
             cacheSession = &sessRow->Sessions[clientSession->serverIdx];
 #endif
+            /* Prevent memory access */
+            XFENCE();
             if (cacheSession && cacheSession->sessionIDSz == 0) {
                 cacheSession = NULL;
                 WOLFSSL_MSG("Session cache entry not set");
-                error = -1;
+                error = WOLFSSL_FATAL_ERROR;
             }
         }
         if (error == 0) {
@@ -1847,7 +1849,8 @@ int AddSessionToCache(WOLFSSL_CTX* ctx, WOLFSSL_SESSION* addSession,
         WOLFSSL_MSG("Hash session failed");
     #ifdef HAVE_SESSION_TICKET
         XFREE(ticBuff, NULL, DYNAMIC_TYPE_SESSION_TICK);
-    #if defined(WOLFSSL_TLS13) && defined(WOLFSSL_TICKET_NONCE_MALLOC)
+    #if defined(WOLFSSL_TLS13) && defined(WOLFSSL_TICKET_NONCE_MALLOC) &&      \
+    (!defined(HAVE_FIPS) || (defined(FIPS_VERSION_GE) && FIPS_VERSION_GE(5,3)))
         XFREE(preallocNonce, addSession->heap, DYNAMIC_TYPE_SESSION_TICK);
     #endif
     #endif
@@ -1858,7 +1861,8 @@ int AddSessionToCache(WOLFSSL_CTX* ctx, WOLFSSL_SESSION* addSession,
     if (SESSION_ROW_WR_LOCK(sessRow) != 0) {
     #ifdef HAVE_SESSION_TICKET
         XFREE(ticBuff, NULL, DYNAMIC_TYPE_SESSION_TICK);
-    #if defined(WOLFSSL_TLS13) && defined(WOLFSSL_TICKET_NONCE_MALLOC)
+    #if defined(WOLFSSL_TLS13) && defined(WOLFSSL_TICKET_NONCE_MALLOC) &&          \
+    (!defined(HAVE_FIPS) || (defined(FIPS_VERSION_GE) && FIPS_VERSION_GE(5,3)))
         XFREE(preallocNonce, addSession->heap, DYNAMIC_TYPE_SESSION_TICK);
     #endif
     #endif
@@ -1897,7 +1901,8 @@ int AddSessionToCache(WOLFSSL_CTX* ctx, WOLFSSL_SESSION* addSession,
         if (cacheSession == NULL) {
         #ifdef HAVE_SESSION_TICKET
             XFREE(ticBuff, NULL, DYNAMIC_TYPE_SESSION_TICK);
-        #if defined(WOLFSSL_TLS13) && defined(WOLFSSL_TICKET_NONCE_MALLOC)
+        #if defined(WOLFSSL_TLS13) && defined(WOLFSSL_TICKET_NONCE_MALLOC) &&          \
+        (!defined(HAVE_FIPS) || (defined(FIPS_VERSION_GE) && FIPS_VERSION_GE(5,3)))
             XFREE(preallocNonce, addSession->heap, DYNAMIC_TYPE_SESSION_TICK);
         #endif
         #endif
@@ -1986,10 +1991,12 @@ int AddSessionToCache(WOLFSSL_CTX* ctx, WOLFSSL_SESSION* addSession,
 #if defined(HAVE_SESSION_TICKET) && defined(WOLFSSL_TLS13) &&                  \
     defined(WOLFSSL_TICKET_NONCE_MALLOC) &&                                   \
     (!defined(HAVE_FIPS) || (defined(FIPS_VERSION_GE) && FIPS_VERSION_GE(5,3)))
-    ret = wolfSSL_DupSessionEx(addSession, cacheSession, 1, preallocNonce,
-        &preallocNonceLen, &preallocNonceUsed) == WOLFSSL_FAILURE;
+    ret = (wolfSSL_DupSessionEx(addSession, cacheSession, 1, preallocNonce,
+                                &preallocNonceLen, &preallocNonceUsed)
+           == WC_NO_ERR_TRACE(WOLFSSL_FAILURE));
 #else
-    ret = wolfSSL_DupSession(addSession, cacheSession, 1) == WOLFSSL_FAILURE;
+    ret = (wolfSSL_DupSession(addSession, cacheSession, 1)
+           == WC_NO_ERR_TRACE(WOLFSSL_FAILURE));
 #endif /* HAVE_SESSION_TICKET && WOLFSSL_TLS13 && WOLFSSL_TICKET_NONCE_MALLOC
           && FIPS_VERSION_GE(5,3)*/
 #if defined(SESSION_CERTS) && defined(OPENSSL_EXTRA)
@@ -4228,7 +4235,7 @@ const byte* wolfSSL_get_sessionID(const WOLFSSL_SESSION* session)
 
 int wolfSSL_SESSION_set_ex_data(WOLFSSL_SESSION* session, int idx, void* data)
 {
-    int ret = WOLFSSL_FAILURE;
+    int ret = WC_NO_ERR_TRACE(WOLFSSL_FAILURE);
     WOLFSSL_ENTER("wolfSSL_SESSION_set_ex_data");
 #ifdef HAVE_EX_DATA
     session = ClientSessionToSession(session);

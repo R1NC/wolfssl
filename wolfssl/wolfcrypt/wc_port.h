@@ -1106,7 +1106,7 @@ WOLFSSL_ABI WOLFSSL_API int wolfCrypt_Cleanup(void);
     #endif
 
     /* PowerPC time_t is int */
-    #ifdef __PPC__
+    #if defined(__PPC__) || defined(__ppc__)
         #define TIME_T_NOT_64BIT
     #endif
 
@@ -1264,19 +1264,28 @@ WOLFSSL_ABI WOLFSSL_API int wolfCrypt_Cleanup(void);
 #endif
 
 #ifndef WOLFSSL_NO_FENCE
-    #if defined (__i386__) || defined(__x86_64__)
+    #ifdef XFENCE
+        /* use user-supplied XFENCE definition. */
+    #elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
+        #include <stdatomic.h>
+        #define XFENCE() atomic_thread_fence(__ATOMIC_SEQ_CST)
+    #elif defined(__GNUC__) && (__GNUC__ >= 4) && (__GNUC__ < 5)
+        #define XFENCE() __sync_synchronize()
+    #elif (defined(__GNUC__) && (__GNUC__ >= 5)) || defined (__clang__)
+        #define XFENCE() __atomic_thread_fence(__ATOMIC_SEQ_CST)
+    #elif defined (__i386__) || defined(__x86_64__)
         #define XFENCE() XASM_VOLATILE("lfence")
     #elif (defined (__arm__) && (__ARM_ARCH > 6)) || defined(__aarch64__)
         #define XFENCE() XASM_VOLATILE("isb")
     #elif defined(__riscv)
         #define XFENCE() XASM_VOLATILE("fence")
-    #elif defined(__PPC__)
+    #elif defined(__PPC__) || defined(__POWERPC__)
         #define XFENCE() XASM_VOLATILE("isync; sync")
     #else
-        #define XFENCE() do{}while(0)
+        #define XFENCE() WC_DO_NOTHING
     #endif
 #else
-    #define XFENCE() do{}while(0)
+    #define XFENCE() WC_DO_NOTHING
 #endif
 
 

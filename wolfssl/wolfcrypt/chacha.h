@@ -97,15 +97,25 @@ WOLFSSL_API int wc_Chacha_SetIV(ChaCha* ctx, const byte* inIv, word32 counter);
 WOLFSSL_API int wc_Chacha_Process(ChaCha* ctx, byte* cipher, const byte* plain,
                               word32 msglen);
 
-WOLFSSL_LOCAL void wc_Chacha_purge_current_block(ChaCha* ctx);
-
 WOLFSSL_API int wc_Chacha_SetKey(ChaCha* ctx, const byte* key, word32 keySz);
 
 #ifdef HAVE_XCHACHA
+WOLFSSL_LOCAL void wc_Chacha_purge_current_block(ChaCha* ctx);
+
 WOLFSSL_API int wc_XChacha_SetKey(ChaCha *ctx, const byte *key, word32 keySz,
                                   const byte *nonce, word32 nonceSz,
                                   word32 counter);
 #endif
+
+#if defined(WOLFSSL_ARMASM) && defined(__thumb__)
+void wc_chacha_setiv(word32* x, const byte* iv, word32 counter);
+void wc_chacha_setkey(word32* x, const byte* key, word32 keySz);
+void wc_chacha_use_over(byte* over, byte* output, const byte* input,
+    word32 len);
+void wc_chacha_crypt_bytes(ChaCha* ctx, byte* c, const byte* m, word32 len);
+
+#endif
+
 
 #ifdef __cplusplus
     } /* extern "C" */

@@ -351,7 +351,7 @@ int wolfSSL_i2d_PKCS7(PKCS7 *p7, unsigned char **out)
     int localBuf = 0;
     int len;
     WC_RNG rng;
-    int ret = WOLFSSL_FAILURE;
+    int ret = WC_NO_ERR_TRACE(WOLFSSL_FAILURE);
     WOLFSSL_ENTER("wolfSSL_i2d_PKCS7");
 
     if (!out || !p7) {
@@ -396,9 +396,9 @@ cleanup:
         wc_FreeRng(&rng);
         p7->rng = NULL;
     }
-    if (ret == WOLFSSL_FAILURE && localBuf && output)
+    if (ret == WC_NO_ERR_TRACE(WOLFSSL_FAILURE) && localBuf)
         XFREE(output, NULL, DYNAMIC_TYPE_TMP_BUFFER);
-    if (ret != WOLFSSL_FAILURE)
+    if (ret != WC_NO_ERR_TRACE(WOLFSSL_FAILURE))
         *out = output;
     return ret;
 }
@@ -407,7 +407,7 @@ int wolfSSL_i2d_PKCS7_bio(WOLFSSL_BIO *bio, PKCS7 *p7)
 {
     byte* output = NULL;
     int len;
-    int ret = WOLFSSL_FAILURE;
+    int ret = WC_NO_ERR_TRACE(WOLFSSL_FAILURE);
     WOLFSSL_ENTER("wolfSSL_i2d_PKCS7_bio");
 
     if (!bio || !p7) {
@@ -415,7 +415,9 @@ int wolfSSL_i2d_PKCS7_bio(WOLFSSL_BIO *bio, PKCS7 *p7)
         return WOLFSSL_FAILURE;
     }
 
-    if ((len = wolfSSL_i2d_PKCS7(p7, &output)) == WOLFSSL_FAILURE) {
+    if ((len = wolfSSL_i2d_PKCS7(p7, &output)) ==
+        WC_NO_ERR_TRACE(WOLFSSL_FAILURE))
+    {
         WOLFSSL_MSG("wolfSSL_i2d_PKCS7 error");
         goto cleanup;
     }
@@ -600,7 +602,7 @@ static int wolfSSL_BIO_to_MIME_crlf(WOLFSSL_BIO* in, WOLFSSL_BIO* out)
             canonLineLen = (word32)lineLen;
             if ((canonLine = wc_MIME_single_canonicalize(
                                 line, &canonLineLen)) == NULL) {
-                ret = -1;
+                ret = WOLFSSL_FATAL_ERROR;
                 break;
             }
 
@@ -610,7 +612,7 @@ static int wolfSSL_BIO_to_MIME_crlf(WOLFSSL_BIO* in, WOLFSSL_BIO* out)
             }
 
             if (wolfSSL_BIO_write(out, canonLine, (int)canonLineLen) < 0) {
-                ret = -1;
+                ret = WOLFSSL_FATAL_ERROR;
                 break;
             }
             XFREE(canonLine, NULL, DYNAMIC_TYPE_PKCS7);
@@ -619,7 +621,7 @@ static int wolfSSL_BIO_to_MIME_crlf(WOLFSSL_BIO* in, WOLFSSL_BIO* out)
         else {
             /* no line ending in current line, write direct to out */
             if (wolfSSL_BIO_write(out, line, lineLen) < 0) {
-                ret = -1;
+                ret = WOLFSSL_FATAL_ERROR;
                 break;
             }
         }
@@ -1474,7 +1476,9 @@ int wolfSSL_SMIME_write_PKCS7(WOLFSSL_BIO* out, PKCS7* pkcs7, WOLFSSL_BIO* in,
 
     if (ret > 0) {
         /* Generate signedData bundle, DER in output (dynamic) */
-        if ((len = wolfSSL_i2d_PKCS7((PKCS7*)p7, &p7out)) == WOLFSSL_FAILURE) {
+        if ((len = wolfSSL_i2d_PKCS7((PKCS7*)p7, &p7out)) ==
+            WC_NO_ERR_TRACE(WOLFSSL_FAILURE))
+        {
             WOLFSSL_MSG("Error in wolfSSL_i2d_PKCS7");
             ret = 0;
         }
@@ -1703,7 +1707,7 @@ WC_PKCS12* wolfSSL_d2i_PKCS12_bio(WOLFSSL_BIO* bio, WC_PKCS12** pkcs12)
  */
 int wolfSSL_i2d_PKCS12_bio(WOLFSSL_BIO *bio, WC_PKCS12 *pkcs12)
 {
-    int ret = WOLFSSL_FAILURE;
+    int ret = WC_NO_ERR_TRACE(WOLFSSL_FAILURE);
 
     WOLFSSL_ENTER("wolfSSL_i2d_PKCS12_bio");
 

@@ -24,10 +24,9 @@
 #endif
 
 #include <wolfssl/wolfcrypt/settings.h>
-#if defined(OPENSSL_EXTRA) && !defined(_WIN32)
+#if defined(OPENSSL_EXTRA) && !defined(_WIN32) && !defined(_GNU_SOURCE)
     /* turn on GNU extensions for XVASPRINTF with wolfSSL_BIO_printf */
-    #undef  _GNU_SOURCE
-    #define _GNU_SOURCE
+    #define _GNU_SOURCE 1
 #endif
 
 #if !defined(WOLFSSL_BIO_INCLUDED)
@@ -353,7 +352,7 @@ int wolfSSL_BIO_read(WOLFSSL_BIO* bio, void* buf, int len)
                  *  (cannot be used with WOLFSSL_USER_IO) */
                 bio->flags &= ~WOLFSSL_BIO_FLAG_RETRY;
                 ret = wolfIO_Recv(bio->num.fd, (char*)buf, len, 0);
-                if (ret == WOLFSSL_CBIO_ERR_WANT_READ) {
+                if (ret == WC_NO_ERR_TRACE(WOLFSSL_CBIO_ERR_WANT_READ)) {
                     bio->flags |= WOLFSSL_BIO_FLAG_RETRY;
                 }
                 if (ret < 0) {
@@ -377,7 +376,7 @@ int wolfSSL_BIO_read(WOLFSSL_BIO* bio, void* buf, int len)
                     ret = wolfIO_RecvFrom(bio->num.fd, &bio->peer_addr,
                                           (char*)buf, len, 0);
                 }
-                if (ret == WOLFSSL_CBIO_ERR_WANT_READ) {
+                if (ret == WC_NO_ERR_TRACE(WOLFSSL_CBIO_ERR_WANT_READ)) {
                     bio->flags |= WOLFSSL_BIO_FLAG_RETRY;
                 }
                 if (ret < 0) {
@@ -453,8 +452,9 @@ static int wolfSSL_BIO_BASE64_write(WOLFSSL_BIO* bio, const void* data,
         }
     }
     else {
-        if (Base64_Encode((const byte*)data, inLen, NULL, &sz) !=
-            LENGTH_ONLY_E) {
+        if (Base64_Encode((const byte*)data, inLen, NULL, &sz)
+              != WC_NO_ERR_TRACE(LENGTH_ONLY_E))
+        {
             WOLFSSL_MSG("Error with base64 get length");
             return WOLFSSL_FATAL_ERROR;
         }
@@ -777,7 +777,7 @@ int wolfSSL_BIO_write(WOLFSSL_BIO* bio, const void* data, int len)
                  *  (cannot be used with WOLFSSL_USER_IO) */
                 bio->flags &= ~WOLFSSL_BIO_FLAG_RETRY;
                 ret = wolfIO_Send(bio->num.fd, (char*)data, len, 0);
-                if (ret == WOLFSSL_CBIO_ERR_WANT_WRITE) {
+                if (ret == WC_NO_ERR_TRACE(WOLFSSL_CBIO_ERR_WANT_WRITE)) {
                     bio->flags |= WOLFSSL_BIO_FLAG_RETRY;
                 }
                 if (ret < 0) {
@@ -800,7 +800,7 @@ int wolfSSL_BIO_write(WOLFSSL_BIO* bio, const void* data, int len)
                     ret = SOCKET_ERROR_E;
                 else
                     ret = wolfIO_SendTo(bio->num.fd, &bio->peer_addr, (char*)data, len, 0);
-                if (ret == WOLFSSL_CBIO_ERR_WANT_WRITE) {
+                if (ret == WC_NO_ERR_TRACE(WOLFSSL_CBIO_ERR_WANT_WRITE)) {
                     bio->flags |= WOLFSSL_BIO_FLAG_RETRY;
                 }
                 if (ret < 0) {
@@ -1848,13 +1848,13 @@ int wolfSSL_BIO_seek(WOLFSSL_BIO *bio, int ofs)
       WOLFSSL_ENTER("wolfSSL_BIO_seek");
 
       if (bio == NULL) {
-          return -1;
+          return WOLFSSL_FATAL_ERROR;
       }
 
       /* offset ofs from beginning of file */
       if (bio->type == WOLFSSL_BIO_FILE &&
               XFSEEK(bio->ptr.fh, ofs, SEEK_SET) < 0) {
-          return -1;
+          return WOLFSSL_FATAL_ERROR;
       }
 
       return 0;
@@ -1871,7 +1871,7 @@ int wolfSSL_BIO_tell(WOLFSSL_BIO* bio)
     WOLFSSL_ENTER("wolfSSL_BIO_tell");
 
     if (bio == NULL) {
-        return -1;
+        return WOLFSSL_FATAL_ERROR;
     }
 
     if (bio->type != WOLFSSL_BIO_FILE) {
@@ -1880,7 +1880,7 @@ int wolfSSL_BIO_tell(WOLFSSL_BIO* bio)
 
     pos = (int)XFTELL(bio->ptr.fh);
     if (pos < 0)
-        return -1;
+        return WOLFSSL_FATAL_ERROR;
     else
         return pos;
 }
@@ -2224,7 +2224,7 @@ int wolfSSL_BIO_flush(WOLFSSL_BIO* bio)
     /* return the context and initialize the BIO state */
     int wolfSSL_BIO_get_md_ctx(WOLFSSL_BIO *bio, WOLFSSL_EVP_MD_CTX **mdcp)
     {
-        int ret = WOLFSSL_FAILURE;
+        int ret = WC_NO_ERR_TRACE(WOLFSSL_FAILURE);
 
         if ((bio != NULL) && (mdcp != NULL)) {
             *mdcp = bio->ptr.md_ctx;
@@ -3245,7 +3245,7 @@ int wolfSSL_BIO_vprintf(WOLFSSL_BIO* bio, const char* format, va_list args)
 #if !defined(NO_FILESYSTEM)
         case WOLFSSL_BIO_FILE:
             if (bio->ptr.fh == XBADFILE) {
-                return -1;
+                return WOLFSSL_FATAL_ERROR;
             }
             ret = XVFPRINTF(bio->ptr.fh, format, args);
             break;
